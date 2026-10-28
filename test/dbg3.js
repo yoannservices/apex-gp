@@ -1,0 +1,10 @@
+const path = require('path');
+globalThis.THREE = require('../vendor/three.min.js');
+['util.js','config.js','tires.js','carPhysics.js','damage.js','car.js','tracks.js','track.js','racingLine.js','driver.js','collision.js','debris.js','rules.js','pitStop.js','adaptive.js','race.js'].forEach(f => require(path.join('..','src',f)));
+const A = globalThis.AGP;
+const tr = new A.Track(A.TRACK_DEFS.find(d => d.id === 'velocita'));
+const race = new A.Race({ tr, settings: Object.assign({}, A.DEFAULT_SETTINGS, { diff: 2 }), mode: 'race', laps: 3 });
+race.player.auto_ap = true;
+for (let t=0;t<60;t+=1/60) race.update(1/60);
+const R=race.rules; console.log('sc mode',R.sc.mode,'sc car',R.sc.car&&[R.sc.car.s|0,R.sc.car.u.toFixed(1),R.sc.car.hidden]);
+R.order.forEach((c,k)=>console.log(k,c.number,'pos',c.pos,'s',c.s|0,'dist',c.dist|0,'u',c.u.toFixed(1),'lat',c.lat.toFixed(1),'cap',R.speedCap(c).toFixed(1),c.dnf?'DNF':'', 'stuck',c.stuckT.toFixed(1),'lap',c.lap,'pit',c.pit.state));

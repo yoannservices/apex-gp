@@ -1,0 +1,13 @@
+const path = require('path');
+globalThis.THREE = require('../vendor/three.min.js');
+['util.js','config.js','tires.js','carPhysics.js','damage.js','car.js','tracks.js','track.js','racingLine.js','driver.js','collision.js','debris.js','rules.js','pitStop.js','adaptive.js','race.js'].forEach(f => require(path.join('..','src',f)));
+const A = globalThis.AGP; let s=7919; Math.random = ()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
+const tr = new A.Track(A.TRACK_DEFS.find(d => d.id === 'velocita'));
+const race = new A.Race({ tr, settings: Object.assign({}, A.DEFAULT_SETTINGS, { diff: 2 }), mode: 'race', laps: 3 });
+race.player.auto_ap = true;
+race.on((t,d)=>{ const n=c=>c.number+'@s'+(c.s|0)+' lat'+c.lat.toFixed(1)+' u'+((c.u*3.6)|0);
+  if(t==='dnf') console.log(race.clock.toFixed(1),'DNF',n(d.car),JSON.stringify(d.car.d.wheel),'eng',d.car.d.engine.toFixed(2),'rec',d.car.recoveries);
+  if(t==='wall'&&d.sev>3) console.log(race.clock.toFixed(1),'wall',n(d.car),d.sev.toFixed(1));
+  if(t==='crash'&&d.sev>3) console.log(race.clock.toFixed(1),'crash',n(d.a),n(d.b),d.sev.toFixed(1));
+  if(t==='recover') console.log(race.clock.toFixed(1),'recover',n(d.car));});
+for (let t=0;t<70;t+=1/60) race.update(1/60);
