@@ -59,7 +59,7 @@
       const cfg = A.Modes.config(quali ? 'quali' : kind === 'champ' ? 'race' : kind, set, tr, opts);
       cfg.scene = scene;
       const race = (S.race = new A.Race(cfg));
-      tr.slotTeams = Array.from({ length: 20 }, (_, k) => race.cars.find(x => x.gridPos === k)?.team ?? k % 6);
+      tr.slotTeams = Array.from({ length: 20 }, (_, k) => race.cars.find(x => x.gridPos === k)?.teamIdx ?? k % 6);
       tr.playerSlot = race.player.gridPos;
       tr.build(); scene.add(tr.group);
       const weather = (S.weather = race.weather = new A.Weather(scene, renderer, tr, { weather: set.weather, night: set.night }, race.env));
