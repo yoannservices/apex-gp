@@ -59,7 +59,8 @@
       const cfg = A.Modes.config(quali ? 'quali' : kind === 'champ' ? 'race' : kind, set, tr, opts);
       cfg.scene = scene;
       const race = (S.race = new A.Race(cfg));
-      tr.slotColors = Array.from({ length: 20 }, (_, k) => { const c = race.cars.find(x => x.gridPos === k); return (c ? c.team : A.TEAMS[k % 6]).color; });
+      tr.slotTeams = Array.from({ length: 20 }, (_, k) => race.cars.find(x => x.gridPos === k)?.team ?? k % 6);
+      tr.playerSlot = race.player.gridPos;
       tr.build(); scene.add(tr.group);
       const weather = (S.weather = race.weather = new A.Weather(scene, renderer, tr, { weather: set.weather, night: set.night }, race.env));
       if (set.night) weather.attachHeadlight(race.models.get(race.player).root);
