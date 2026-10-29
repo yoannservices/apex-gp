@@ -7,7 +7,15 @@
   const WR = [0.33, 0.33, 0.36, 0.36], WW = [0.38, 0.38, 0.48, 0.48];
   const DARK = 0x1a1b1f, UP = new T.Vector3(0, 0, 1);
   const cache = {};
-  let bodyMat, tireMat, stripeMats, glassMat;
+  let bodyMat, tireMat, stripeMats, glassMat, f1Source;
+  const loadF1 = () => {
+    if (f1Source) return f1Source;
+    f1Source = new Promise((resolve, reject) => {
+      if (!T.GLTFLoader) return reject(new Error('GLTFLoader unavailable'));
+      new T.GLTFLoader().load(new URL('../../assets/models/F1.glb', document.baseURI).href, gltf => resolve(gltf.scene), undefined, reject);
+    });
+    return f1Source;
+  };
 
   const mats = () => {
     if (bodyMat) return;
@@ -119,6 +127,18 @@
     m.low = new T.Mesh(G.low, bodyMat); m.low.visible = false; root.add(m.low);
     m.head = new T.Object3D(); m.head.position.set(0, 0.85, 0.05); hi.add(m.head); // œil du pilote
     m.shadowOn = true;
+    loadF1().then(source => {
+      const visual = source.clone(true);
+      visual.rotation.y = Math.PI;
+      let bounds = new T.Box3().setFromObject(visual), size = bounds.getSize(new T.Vector3());
+      visual.scale.setScalar(6 / Math.max(size.x, size.z));
+      bounds = new T.Box3().setFromObject(visual);
+      const center = bounds.getCenter(new T.Vector3());
+      visual.position.set(-center.x, -bounds.min.y, -center.z);
+      visual.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+      hi.add(visual);
+      m.glb = visual; m.hi.visible = false; m.low.visible = false;
+    }).catch(() => { m.hi.visible = true; m.low.visible = false; });
     return m;
   };
 
@@ -139,7 +159,7 @@
     const rough = car.surf[0] === 1 || car.surf[1] === 1 || car.surf[2] === 1 || car.surf[3] === 1 ? Math.sin(car.t * 90) * 0.008 : 0;
     root.position.set(car.x, car.height + rough + (car.lift || 0), car.z);
     root.rotation.set(-car.ax * 0.0022, car.h, car.ay * 0.0012 - car.bank, 'YXZ');
-    if (far !== m.lodFar) { m.lodFar = far; m.hi.visible = !far; m.low.visible = far; }
+    if (far !== m.lodFar) { m.lodFar = far; m.hi.visible = m.glb ? false : !far; m.low.visible = m.glb ? false : far; }
     m.low.castShadow = m.hi.visible ? false : cast;
     if (far) return;
     if (m.shadowOn !== cast) { m.shadowOn = cast; m.casters.forEach(o => (o.castShadow = cast)); }
