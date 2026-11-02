@@ -172,4 +172,5 @@
   } else A.Menus.main();
   addEventListener('pointerdown', () => audio.start());
   requestAnimationFrame(frame);
+  window.GameLoader.ready();
 })();

@@ -37,8 +37,8 @@
     { name: 'Débutant', pace: 0.8, noise: 0.05, err: 0.35, agg: 0.15 },
     { name: 'Amateur', pace: 0.87, noise: 0.035, err: 0.18, agg: 0.3 },
     { name: 'Pro', pace: 0.93, noise: 0.022, err: 0.08, agg: 0.5 },
-    { name: 'Champion', pace: 0.97, noise: 0.012, err: 0.035, agg: 0.7 },
-    { name: 'Légende', pace: 1.0, noise: 0.006, err: 0.012, agg: 0.9 },
+    { name: 'Champion', pace: 0.99, noise: 0.008, err: 0.015, agg: 0.7 },
+    { name: 'Légende', pace: 1.0, noise: 0.0025, err: 0.003, agg: 0.9 },
   ];
   // Interpole les paramètres pour un niveau continu 0..4
   A.diffAt = lv => {

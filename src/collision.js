@@ -77,14 +77,15 @@
         const h = A.obbTest(a, b);
         if (!h) continue;
         const sh = Math.min(h.depth, 0.5), wa = a.dnf ? 0 : b.dnf ? 1 : 0.5, wb = 1 - wa;
+        const freshContact = a.bumpT <= 0 && b.bumpT <= 0;
         a.x -= h.n[0] * sh * wa; a.z -= h.n[1] * sh * wa; b.x += h.n[0] * sh * wb; b.z += h.n[1] * sh * wb;
         const pa = [h.p[0] - a.x, h.p[1] - a.z], pb = [h.p[0] - b.x, h.p[1] - b.z];
         const sev = resolve(a, b, h.n, pa, pb);
         if (sev > 0.5) {
           a.bumpT = b.bumpT = 1;
-          if (sev > 2) {
+          if (sev > 2 && freshContact) {
             const la = local(a, pa[0], pa[1]), lb = local(b, pb[0], pb[1]);
-            const ds = a.isPlayer || b.isPlayer ? sev : sev * 0.3; // les contacts entre bots abîment peu : sinon le premier virage décime la grille
+            const ds = sev;
             if (ds > 2) { A.applyHit(a, la[0], la[1], ds); A.applyHit(b, lb[0], lb[1], ds); }
             emit && emit('crash', { a, b, sev, x: h.p[0], z: h.p[1] });
           }

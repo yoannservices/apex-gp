@@ -8,8 +8,14 @@ const def = A.TRACK_DEFS.find(d => d.id === id), tr = new A.Track(def);
 const set = Object.assign({}, A.DEFAULT_SETTINGS, { diff: lv, adaptive: true });
 const race = new A.Race({ tr, settings: set, mode: 'race', laps, wet0 });
 race.env.wet = wet0;
-const ev = {}; race.on((t, d) => { ev[t] = (ev[t] || 0) + 1; if (['sc', 'dnf', 'penalty', 'missed'].includes(t)) console.log(`  [${race.clock.toFixed(0)}s] ${t}`, d.car ? d.car.name : '', d.on != null ? d.on : d.why || ''); });
 const p = race.player;
+for (const c of race.cars) {
+  if (c.isPlayer) continue;
+  if (Object.keys(p.perf).some(k => c.perf[k] !== p.perf[k]) || Object.keys(p.setup).some(k => c.setup[k] !== p.setup[k])) {
+    throw new Error(`Caractéristiques différentes entre ${p.name} et ${c.name}`);
+  }
+}
+const ev = {}; race.on((t, d) => { ev[t] = (ev[t] || 0) + 1; if (['sc', 'dnf', 'penalty', 'missed'].includes(t)) console.log(`  [${race.clock.toFixed(0)}s] ${t}`, d.car ? d.car.name : '', d.on != null ? d.on : d.why || ''); });
 const H = 1 / 60;
 let nan = false, t = 0;
 while (t < 60 * 20 * laps && !race.resultsDone) {

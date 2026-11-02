@@ -4,10 +4,10 @@
   const clamp = A.clamp, WB = 3.6;
 
   const STYLES = {
-    prudent: { agg: -0.2, err: 0.7, pace: 0.985, gap: 1.4 },
-    regulier: { agg: 0, err: 0.85, pace: 1, gap: 1 },
-    agressif: { agg: 0.25, err: 1.1, pace: 1.005, gap: 0.7 },
-    cannibale: { agg: 0.5, err: 1.4, pace: 1.005, gap: 0.45 },
+    prudent: { err: 0.7 },
+    regulier: { err: 0.85 },
+    agressif: { err: 1.1 },
+    cannibale: { err: 1.4 },
   };
 
   A.Driver = class Driver {
@@ -16,7 +16,7 @@
       this.st = STYLES[drv.style] || STYLES.regulier;
       this.lvl = A.diffAt(2);
       this.off = 0; this.n1 = 0; this.n2 = 0; this.errT = 0; this.sd = 0; this.defend = 0; this.lastErr = 0;
-      this.ovt = 0; this.relStart = 0;
+      this.relStart = 0;
     }
     setLevel(lv) { this.lvl = typeof lv === 'number' ? A.diffAt(lv) : lv; }
 
@@ -44,47 +44,8 @@
       this.errT = Math.max(0, this.errT - dt);
       if (this.errT === 0 && u > 35 && !pit && ctx.phase === 'race' && Math.random() < (lv.err * st.err / 60) * dt * (1 + 1.5 * ctx.wet)) this.errT = 1.1 + Math.random() * 0.8;
 
-      // ---- décalage latéral voulu ----
-      let want = L.off[i];
-      let capV = 99;
-      let near = null, ahead = null, aheadGap = 1e9, blk = null, blkGap = 1e9;
-      for (const o of ctx.cars) {
-        if (o === car || o.hidden) continue;
-        let dsx = o.s - car.s; dsx = ((dsx % tr.L) + tr.L * 1.5) % tr.L - tr.L / 2;
-        const dl = o.lat - car.lat;
-        if (dsx > 0 && dsx < 70 && Math.abs(dl) < 3.6 && dsx < aheadGap + 5) { ahead = o; aheadGap = dsx - 5; }
-        if (dsx > 0 && dsx < 90 && Math.abs(dl) < 2.2 && dsx < blkGap + 5) { blk = o; blkGap = dsx - 5; }
-        if (Math.abs(dsx) < 9 && Math.abs(dl) < 3.0 && !o.dnf && (!near || Math.abs(dsx) < Math.abs(near.dsx))) near = { o, dl, dsx };
-      }
-      let target = want;
-      const room = tr.hw - 1.4;
-      if (ahead && !pit) {
-        const dl = ahead.lat - car.lat, wreck = ahead.dnf || ahead.u < 4, pace = wreck || ahead.u < u + 1 || aheadGap < 14;
-        if (pace && ctx.phase !== 'grid' && (ctx.phase === 'race' && !ctx.sc || wreck) && aheadGap < 40) {
-          // dépassement : on décale du côté libre ; les prudents suivent
-          const side = ahead.lat > 0 ? -1 : 1, shift = (2.6 + st.agg * 1.2) * side;
-          const prob = 0.35 + lv.agg * 0.6 + st.agg * 0.5;
-          if (this.ovt > 0 || (aheadGap < 24 && (prob > 0.45 || wreck))) { target = clamp(ahead.lat + shift, -room, room); this.ovt = 2; }
-          if (aheadGap < 9 && Math.abs(dl) < 1.6 && !(this.ovt > 0)) capV = Math.min(capV, ahead.u + 3);
-          if (aheadGap < 6 && Math.abs(dl) < 1.5) capV = Math.min(capV, ahead.u * 0.97);
-        }
-      }
-      // distance de sécurité : on doit pouvoir s'arrêter derrière la voiture qui nous précède sur la même trajectoire
-      if (blk && !pit) capV = Math.min(capV, Math.sqrt(blk.u * blk.u + 2 * 25 * Math.max(0, blkGap - 4 - 0.2 * u)) + 0.5);
-      this.ovt = Math.max(0, this.ovt - dt);
-      if (near && !pit && Math.abs(near.dsx) < 9) { // voiture à côté : on laisse de la place, celle qui rabat cède le passage
-        const away = near.dl > 0 ? -1 : 1;
-        target = clamp(target + away * (1.4 - Math.abs(near.dl) * 0.35), -room, room);
-        if (Math.abs(near.dl) < 2.8 && (near.dsx > 1.5 || (near.dsx > -1.5 && car.id > near.o.id))) {
-          if ((target - this.off) * near.dl > 0) target = this.off;
-          capV = Math.min(capV, Math.max(near.o.u - 2, 5));
-        }
-      }
-      // départ : chaque voiture garde son côté de grille jusqu'à la fin du premier tour de chauffe
-      if (this.lane === undefined) { this.lane = car.lat >= 0 ? 1 : -1; this.off = car.lat; this.hold = true; }
-      if (this.hold && ((car.lap >= 1 && car.s > tr.L * 0.3) || (u > 25 && L.vmax[(i + Math.ceil(170 / ds)) % N] < 0.88 * u))) this.hold = false;
-      if (this.hold && !pit) target = this.lane > 0 ? Math.max(target, 1.4) : Math.min(target, -1.4);
-      // piste mouillée / sortie de piste : retour progressif sur la trajectoire
+      // Chaque bot suit sa ligne idéale sans adapter sa trajectoire aux autres voitures.
+      const target = L.off[i];
       const d0 = this.off;
       this.off += clamp(target - d0, -3.2 * dt, 3.2 * dt);
 
@@ -97,7 +58,7 @@
       const Ld = clamp(5 + 0.22 * Math.abs(u), 8, 34) * (pit ? 0.7 : 1);
       const k = (i + Math.ceil(Ld / ds)) % N;
       let kOff = dOff;
-      if (!pit) kOff = this.off + (L.off[k] - L.off[i]) * (this.ovt > 0 ? 0.3 : 1) ;
+      if (!pit) kOff = this.off + (L.off[k] - L.off[i]);
       else { const f = tr.pitOff[k] / tr.pitCenter; kOff = L.off[k] * (1 - f) + (tr.pitOff[k] + pitLat) * f; }
       const tx = tr.px[k] + tr.nx[k] * kOff, tz = tr.pz[k] + tr.nz[k] * kOff;
       const alpha = A.wrap(Math.atan2(tx - car.x, tz - car.z) - car.h);
@@ -112,15 +73,14 @@
       // ---- vitesse cible ----
       const look = Math.ceil((Math.abs(u) * 0.35) / ds);
       let vt = Math.min(L.vmax[i], L.vmax[(i + look) % N]);
-      const pace = lv.pace * st.pace * this.drv.skill * (1 + this.n1 * lv.noise * 0.6);
-      vt *= pace * this.gripScale(ctx.wet) * (car.lap <= 1 && ctx.cars.length > 4 ? 0.94 : 1); // 1er tour en peloton : prudence
-      if (this.errT > 0) vt *= 1.12;
+      const pace = lv.pace * (1 + this.n1 * lv.noise * 0.6);
+      vt *= pace * this.gripScale(ctx.wet);
+      if (this.errT > 0) vt *= 0.96;
       // hors piste : on revient doucement
       const off = Math.abs(car.lat) - tr.hw;
       if (off > 0.5 && !pit && tr.pitOff[i] < 0.5) vt = Math.min(vt, 28);
       if (car.d.fw < 0.2) vt *= 0.9;
       if (car.d.wheel.some(w => !w)) vt = Math.min(vt, 25);
-      vt = Math.min(vt, capV);
 
       // arrêt au stand / limiteur
       if (pit) {
@@ -137,8 +97,6 @@
       }
       // drapeau jaune / safety car / formation
       if (ctx.speedCap) vt = Math.min(vt, ctx.speedCap(car, this));
-      if (ctx.phase === 'start') vt = Math.min(99, capV);
-
       const e = vt - u;
       if (u < 2 && ctx.phase === 'start') { inp.thr = 1; inp.brk = 0; }
       else {

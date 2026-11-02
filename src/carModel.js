@@ -10,10 +10,10 @@
   let bodyMat, tireMat, stripeMats, glassMat, f1Source;
   const loadF1 = () => {
     if (f1Source) return f1Source;
-    f1Source = new Promise((resolve, reject) => {
-      if (!T.GLTFLoader) return reject(new Error('GLTFLoader unavailable'));
-      new T.GLTFLoader().load(new URL('../../assets/models/F1.glb', document.baseURI).href, gltf => resolve(gltf.scene), undefined, reject);
-    });
+    const end = globalThis.GameLoader && globalThis.GameLoader.begin('Modèle 3D F1.glb');
+    f1Source = import('three/addons/loaders/GLTFLoader.js')
+      .then(({ GLTFLoader }) => new GLTFLoader().loadAsync(new URL('../../assets/models/F1.glb', document.baseURI).href))
+      .then(gltf => { if (end) end(); return gltf.scene; }, error => { if (end) end(error); throw error; });
     return f1Source;
   };
 
@@ -136,7 +136,7 @@
       const center = bounds.getCenter(new T.Vector3());
       visual.position.set(-center.x, -bounds.min.y, -center.z);
       visual.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
-      hi.add(visual);
+      root.add(visual); // frère de hi : hi est masqué une fois le modèle chargé
       m.glb = visual; m.hi.visible = false; m.low.visible = false;
     }).catch(() => { m.hi.visible = true; m.low.visible = false; });
     return m;

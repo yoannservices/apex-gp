@@ -29,6 +29,7 @@
     _build() {
       const set = this.set, tr = this.tr, nBots = this.mode === 'race' ? (this.cfg.bots != null ? this.cfg.bots : 19) : this.mode === 'practice' ? (this.cfg.bots || 0) : 0;
       const total = nBots + 1, fuel = this.laps === Infinity ? 100 : Math.min(100, 8 + this.laps * 2.3);
+      const playerPerf = A.TEAMS[set.team].perf, playerSetup = Object.assign({}, A.DEFAULT_SETTINGS.setup, set.setup);
       // ordre de grille : indices de voitures (0 = joueur)
       const ids = [], bots = [];
       for (let i = 1; i <= nBots; i++) bots.push(i);
@@ -41,7 +42,8 @@
       ids.forEach((id, k) => {
         const isP = id === 0, drv = isP ? null : A.DRIVERS[id - 1];
         const tire = isP ? set.tire : wet0 > 0.6 ? 'W' : wet0 > 0.25 ? 'I' : A.pick(['M', 'M', 'M', 'S', 'S', 'H', 'H']);
-        const c = new A.Car(id, { name: isP ? set.name : drv.name, number: isP ? set.number : nums[(id - 1) % nums.length], team: isP ? set.team : drv.team, driver: drv, isPlayer: isP, setup: isP ? set.setup : { wing: A.rand(0.4, 0.6), bias: A.rand(0.56, 0.6), pF: 21, pR: 20.5 }, assists: isP ? set.assists : { abs: true, tc: true, auto: true }, tire });
+        const c = new A.Car(id, { name: isP ? set.name : drv.name, number: isP ? set.number : nums[(id - 1) % nums.length], team: isP ? set.team : drv.team, driver: drv, isPlayer: isP, setup: playerSetup, assists: isP ? set.assists : { abs: true, tc: true, auto: true }, tire });
+        if (!isP) c.perf = Object.assign({}, playerPerf);
         const pose = tr.gridPose(this.cfg.noGrid ? 0 : k);
         c.reset(pose, fuel); c.gridPos = k; c.pit.slot = k; c.pos = k + 1; c.s = pose.s; c.idx = -1;
         A.contact(c, tr);

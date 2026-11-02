@@ -20,8 +20,7 @@
       const L = race.line, ds = race.tr.ds, drv = A.DRIVERS[k], lv = A.diffAt(race.baseLevel);
       let t = 0;
       for (let i = 0; i < race.tr.N; i++) t += ds / L.vmax[i];
-      const style = { prudent: 0.985, regulier: 1, agressif: 1.005, cannibale: 1.005 }[drv.style] || 1;
-      return (t / (lv.pace * style * drv.skill)) * (1 + 0.025 * (Math.random() - 0.4)) + 1.2;
+      return (t / lv.pace) * (1 + 0.025 * (Math.random() - 0.4)) + 1.2;
     },
 
     // Place sur la grille d'après le meilleur tour du joueur en qualifs

@@ -69,7 +69,7 @@
 
     // ---------- écrans ----------
     main() {
-      const p = this._screen('APEX GP', 'Simulation de Formule 1 — 100 % procédurale, Three.js');
+      const p = this._screen('APEX GP', 'Simulation de Formule 1 — 100 % procédurale, Three.js'); p.classList.add('main'); // cible du bloc de présentation (assets/driving-base.js)
       const ch = A.Champ.state();
       this._btn(p, 'Course', () => this.setup('race'));
       this._btn(p, 'Contre-la-montre', () => this.setup('tt'));
