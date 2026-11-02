@@ -129,7 +129,7 @@
     m.shadowOn = true;
     loadF1().then(source => {
       const visual = source.clone(true);
-      visual.rotation.y = Math.PI;
+      visual.rotation.y = 0;
       let bounds = new T.Box3().setFromObject(visual), size = bounds.getSize(new T.Vector3());
       visual.scale.setScalar(6 / Math.max(size.x, size.z));
       bounds = new T.Box3().setFromObject(visual);

@@ -58,6 +58,11 @@
     ['F. Rossi', 'agressif'], ['V. Hartmann', 'prudent'], ['Y. Benali', 'cannibale'],
   ].map((d, i) => ({ name: d[0], style: d[1], team: (i + 1) % 6, skill: 0.97 + ((i * 37) % 7) / 100 }));
 
+  // motifs de sanction (affichés à l'écran, dits par la radio et listés dans les résultats)
+  A.PEN_WHY = {
+    limits: 'limites de piste', collision: 'collision', contact: 'contact', rearend: 'tamponnement', weave: 'zigzag devant un concurrent', sidehit: 'contact latéral',
+    incident: 'accrochage', forced: 'a poussé un concurrent hors piste', scpass: 'dépassement sous safety car', yellowpass: 'dépassement sous drapeau jaune', pitspeed: 'excès de vitesse aux stands',
+  };
   A.POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
   A.DEFAULT_SETTINGS = {

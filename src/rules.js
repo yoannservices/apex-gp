@@ -2,12 +2,14 @@
 (function () {
   const A = (globalThis.AGP = globalThis.AGP || {});
   const SC_SPEED = 38;
+  const DSQ_SECS = 30, WARN_SECS = 20; // total de pénalités qui vaut le drapeau noir
+  const MAJOR_MAX = 3;                 // fautes graves avant exclusion
 
   A.Rules = class Rules {
     constructor(race) {
       this.race = race; this.tr = race.tr;
       this.yellow = [false, false, false]; this.sc = { mode: 0, laps: 0, car: null, done: 0 }; this.scCount = 0;
-      this.stoppedT = new Map(); this.order = []; this.blue = false;
+      this.stoppedT = new Map(); this.order = []; this.blue = false; this.rank = new Map();
       this._zones();
     }
 
@@ -55,12 +57,21 @@
           c.offT += dt;
           if (c.offT > 0.15 && !c.cutFlag && racing) {
             c.cutFlag = true; c.cuts++; c.lapValid = false;
-            if (c.cuts % 3 === 0) this.penalty(c, 5, 'limits');
+            if (c.cuts % 3 === 0) this.penalty(c, c.cuts === 3 ? 1 : 5, 'limits');
             else R.emit('limits', { car: c, n: c.cuts % 3 });
+            // une voiture poussée dehors : la faute revient à celle qui l'a touchée juste avant
+            const pb = c.pushedBy; if (pb && R.clock - pb.t < 2 && !pb.car.dnf) { c.pushedBy = null; this.penalty(pb.car, 5, 'forced'); }
           }
         } else if (c.offT > 0) { c.offT = Math.max(0, c.offT - dt * 2); if (c.offT === 0) c.cutFlag = false; }
         else c.cutFlag = false;
       }
+      // ---- vitesse latérale (qui se déporte sur qui), dépassements interdits, exclusions ----
+      for (const c of cars) {
+        if (c.isSC) continue;
+        c.latV = dt > 0 && c.prevLat !== undefined ? (c.latV || 0) * 0.7 + 0.3 * (c.lat - c.prevLat) / dt : 0; c.prevLat = c.lat;
+        if (c.dsq && !c.hidden) { c.dsqT = (c.dsqT || 0) + dt; if (!c.isPlayer && (c.u < 3 || c.dsqT > 12 || c.pit.state)) c.hidden = true; }
+      }
+      if (racing) this._illegalPass(dt);
       // ---- voitures arrêtées / drapeaux jaunes ----
       if (racing) {
         this.yellow = [false, false, false];
@@ -110,20 +121,71 @@
       if (p && !p.pit.state) p.speedingT = 0;
     }
 
-    // chaque pénalité s'ajoute au temps final
+    // chaque pénalité s'ajoute au temps final ; trop de secondes ou de fautes graves = drapeau noir
     penalty(car, secs, why) {
+      if (car.dsq || car.isSC) return;
       car.pen += secs;
+      (car.penLog = car.penLog || []).push({ secs, why, lap: car.lap });
+      if (secs >= 10) car.major = (car.major || 0) + 1;
       this.race.emit('penalty', { car, secs, why });
+      if (this.race.mode === 'race') {
+        if (car.pen >= DSQ_SECS || (car.major || 0) >= MAJOR_MAX) this.disqualify(car, car.pen >= DSQ_SECS ? 'penalties' : 'reckless');
+        else if (car.pen >= WARN_SECS && !car.blackWarned) { car.blackWarned = true; this.race.emit('blackwarn', { car }); }
+      }
     }
 
-    // contact : la voiture qui percute l'autre par l'arrière est fautive
-    crash(a, b, sev) {
-      if (sev < 4 || this.race.phase !== 'race') return;
-      const ds = this.tr.rel(b.s - a.s), at = Math.abs(a.lat - b.lat);
-      if (at < 1.7 && Math.abs(ds) > 1.5 && !a.isSC && !b.isSC) {
+    // drapeau noir : la voiture s'arrête (le joueur voit l'écran de résultats quelques secondes plus tard)
+    disqualify(car, why) {
+      if (car.dsq || car.finished) return;
+      car.dsq = true; car.dnf = true; car.dsqWhy = why;
+      this.race.emit('dsq', { car, why });
+      if (car.isPlayer) this.race.forceEnd = this.race.clock + 7;
+    }
+
+    // contact entre a et b (sev : vitesse relative d'impact en m/s) : on cherche le fautif et on gradue la sanction
+    contact(a, b, sev) {
+      const R = this.race;
+      if (R.phase !== 'race' || a.isSC || b.isSC || a.dsq || b.dsq || R.clock - R.startT < 6) return; // mêlée du départ : accrochage de course
+      if (a.dnf && b.dnf) return;
+      const tr = this.tr, ds = tr.rel(b.s - a.s), dl = b.lat - a.lat;
+      const toward = (c, o) => (c.latV || 0) * Math.sign(o.lat - c.lat); // vitesse latérale vers l'autre voiture (m/s)
+      let guilty = null, why = 'contact';
+      if (Math.abs(ds) > 2.2 && Math.abs(dl) < 2.2) {
+        // choc par l'arrière : fautif = la voiture de derrière, sauf si celle de devant s'est déportée devant elle
         const rear = ds > 0 ? a : b, front = ds > 0 ? b : a;
-        if (rear.u > front.u + 3 && !rear.dnf && this.race.clock - (rear.penT || -9) > 4) { rear.penT = this.race.clock; this.penalty(rear, 5, 'collision'); }
+        guilty = rear; why = 'rearend';
+        if (toward(front, rear) > 2.2 && Math.abs(front.latV) > Math.abs(rear.latV) + 1.2) { guilty = front; why = 'weave'; }
+        else if (front.u < rear.u - 25) guilty = rear;
+      } else {
+        // choc latéral : celle qui se déporte le plus vers l'autre a tort ; sinon accrochage de course
+        const ta = toward(a, b), tb = toward(b, a);
+        if (Math.abs(ta - tb) > 0.6 && Math.max(ta, tb) > 0.5) { guilty = ta > tb ? a : b; why = 'sidehit'; }
+        else if (sev > 4) { guilty = a.u > b.u ? a : b; why = 'incident'; }
       }
+      if (!guilty) return;
+      const victim = guilty === a ? b : a, t = R.clock;
+      if (t - (guilty.penT || -9) < 4) return;
+      guilty.penT = t; victim.pushedBy = { car: guilty, t };
+      const secs = sev >= 9 || victim.dnf || victim.d.wheel.some(w => !w) ? 10 : sev >= 3.5 ? 5 : 1;
+      this.penalty(guilty, secs, why);
+    }
+
+    // dépassement interdit sous safety car ou drapeau jaune : 5 s
+    _illegalPass(dt) {
+      const R = this.race, cars = R.cars.filter(c => !c.isSC && !c.dnf && !c.hidden && c.idx >= 0), sc = this.sc.mode > 0, ranks = new Map();
+      cars.slice().sort((p, q) => q.dist - p.dist).forEach((c, i) => ranks.set(c, i));
+      if (this.rank.size) for (const c of cars) {
+        const was = this.rank.get(c), now = ranks.get(c);
+        if (was === undefined || now >= was || c.pit.state || c.finished) continue;
+        const sec = Math.min(2, Math.floor((c.s / this.tr.L) * 3)), banned = sc || this.yellow[sec];
+        if (!banned || R.clock - (c.passT || -99) < 6) continue;
+        // une voiture réellement dépassée : en mouvement, en piste, qui n'a pas ralenti pour céder la place
+        for (const q of cars) {
+          if (q === c || q.pit.state || q.u < 8 || this.rank.get(q) === undefined) continue;
+          if (this.rank.get(q) < was && this.rank.get(q) >= now && ranks.get(q) > now && Math.abs(q.lat - c.lat) < 5) { c.passT = R.clock; this.penalty(c, 5, sc ? 'scpass' : 'yellowpass'); break; }
+        }
+      }
+      this.rank = ranks;
     }
 
     deploySC() {

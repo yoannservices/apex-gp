@@ -3,12 +3,14 @@
   const A = (globalThis.AGP = globalThis.AGP || {});
   const clamp = A.clamp, WB = 3.6;
 
+  // err : fréquence des fautes ; att : envie d'attaquer (écart max pour tenter un dépassement, m) ; def : tendance à défendre ; gap : distance de suivi souhaitée (m)
   const STYLES = {
-    prudent: { err: 0.7 },
-    regulier: { err: 0.85 },
-    agressif: { err: 1.1 },
-    cannibale: { err: 1.4 },
+    prudent: { err: 0.7, att: 14, def: 0.1, gap: 9 },
+    regulier: { err: 0.85, att: 22, def: 0.35, gap: 7 },
+    agressif: { err: 1.1, att: 32, def: 0.6, gap: 5.5 },
+    cannibale: { err: 1.4, att: 42, def: 0.85, gap: 4.5 },
   };
+  const CAR_LEN = 5.6, LANE = 2.2, PASS_SEP = 2.55;
 
   A.Driver = class Driver {
     constructor(car, tr, line, drv) {
@@ -16,6 +18,7 @@
       this.st = STYLES[drv.style] || STYLES.regulier;
       this.lvl = A.diffAt(2);
       this.off = 0; this.n1 = 0; this.n2 = 0; this.errT = 0; this.sd = 0; this.defend = 0; this.lastErr = 0;
+      this.pass = null; this.defOff = null; this.defT = 0; this.defCool = 0; this.passCool = 0; this.react = 0.12 + Math.random() * 0.18;
       this.relStart = 0;
     }
     setLevel(lv) { this.lvl = typeof lv === 'number' ? A.diffAt(lv) : lv; }
@@ -34,7 +37,7 @@
       const car = this.car, tr = this.tr, L = this.line, inp = car.in, N = tr.N, ds = tr.ds;
       const lv = this.lvl, st = this.st;
       if (car.idx < 0) return;
-      if (ctx.phase === 'grid') { inp.thr = 0; inp.brk = 1; inp.steer = 0; return; }
+      if (ctx.phase === 'grid') { inp.thr = 0; inp.brk = 1; inp.steer = 0; this.off = this.gridLat = car.lat; return; }
       const u = car.u, i = car.idx, relS = tr.rel(car.s);
       const pit = car.pit.state;
 
@@ -44,10 +47,71 @@
       this.errT = Math.max(0, this.errT - dt);
       if (this.errT === 0 && u > 35 && !pit && ctx.phase === 'race' && Math.random() < (lv.err * st.err / 60) * dt * (1 + 1.5 * ctx.wet)) this.errT = 1.1 + Math.random() * 0.8;
 
-      // Chaque bot suit sa ligne idéale sans adapter sa trajectoire aux autres voitures.
-      const target = L.off[i];
+      // ---- voisins : voiture devant sur ma trajectoire, voitures à côté, attaquant derrière ----
+      this.defT = Math.max(0, this.defT - dt); this.defCool = Math.max(0, this.defCool - dt); this.passCool = Math.max(0, this.passCool - dt);
+      let front = null, fgap = 1e9, behind = null, bgap = 1e9, besideL = false, besideR = false;
+      if (!pit && A.AI_RC !== false) for (const o of ctx.cars) {
+        if (o === car || o.hidden || o.isSC || o.pit.state || o.idx < 0) continue;
+        const dd = o.dist - car.dist; if (dd > 90 || dd < -22) continue;
+        const dl = o.lat - car.lat, adl = Math.abs(dl);
+        if (dd > 0 && adl < LANE + 0.4 && dd - CAR_LEN < fgap) { front = o; fgap = dd - CAR_LEN; }
+        if (dd < -1 && adl < LANE && -dd < bgap) { behind = o; bgap = -dd; }
+        if (Math.abs(dd) < CAR_LEN + 1.5 && adl < LANE + 0.9) { if (dl > 0) besideL = true; else besideR = true; }
+      }
+      const kHere = Math.abs(L.k[i]), kAhead = Math.abs(L.k[(i + Math.ceil(Math.max(30, u * 1.2) / ds)) % N]);
+      const straight = kHere < 1 / 260 && kAhead < 1 / 200;
+      const restricted = ctx.speedCap && ctx.speedCap(car, this) < 900;
+      const hw = tr.hw - 1.5;
+
+      // Chaque bot suit sa ligne idéale, sauf pour dépasser, défendre ou éviter un contact.
+      let target = L.off[i];
+      // dépassement : on choisit le côté libre et on s'y tient jusqu'à ce que la voiture soit derrière
+      if (this.pass) {
+        const o = this.pass.car, dd = o.dist - car.dist;
+        if (dd < -(CAR_LEN + 2) || this.pass.t > 9 || o.hidden || o.pit.state || restricted) { this.pass = null; this.passCool = 1.5; }
+        else {
+          this.pass.t += dt; this.pass.lat = clamp(o.lat + this.pass.side * PASS_SEP, -hw, hw); target = this.pass.lat;
+          if (Math.abs(this.pass.lat - o.lat) < PASS_SEP - 0.45 && dd > -2) { this.pass = null; this.passCool = 1; target = L.off[i]; } // plus de place : on abandonne
+        }
+      }
+      if (!this.pass && front && !restricted && !pit && this.passCool <= 0 && ctx.phase === 'race' && ctx.since > 12) { // pas d'attaque dans la mêlée du départ
+        const pace0 = L.vmax[i] * lv.pace * this.gripScale(ctx.wet), closing = Math.max(pace0 - front.u, u - front.u);
+        // il faut le temps de se décaler (≈0,8 s) sans toucher : écart minimal selon la vitesse de rapprochement
+        const room = fgap > 4 + Math.max(0, u - front.u) * 0.9;
+        const want = room && (front.u < 14 || closing > 1.2 + 2.5 * (1 - lv.agg)) && fgap < st.att * (0.5 + lv.agg) + 25 && (straight || front.u < 14);
+        if (want) {
+          let best = null;
+          for (const sd of [-1, 1]) {
+            const lat = clamp(front.lat + sd * PASS_SEP, -hw, hw);
+            if (Math.abs(lat - front.lat) < PASS_SEP - 0.5) continue;
+            if (sd > 0 ? besideL : besideR) continue;
+            let free = true;
+            for (const o of ctx.cars) { if (o === car || o === front || o.hidden || o.isSC) continue; const dd = o.dist - car.dist; if (dd > -6 && dd < fgap + 14 && Math.abs(o.lat - lat) < LANE) { free = false; break; } }
+            if (!free) continue;
+            const score = Math.abs(lat - L.off[(i + Math.ceil(120 / ds)) % N]) + (Math.abs(lat) > hw - 0.5 ? 2 : 0);
+            if (!best || score < best.score) best = { sd, lat, score };
+          }
+          if (best) this.pass = { car: front, side: best.sd, lat: best.lat, t: 0 };
+        }
+      }
+      // défense : une seule feinte vers la trajectoire de l'attaquant, sans zigzag
+      if (!this.pass && behind && !restricted && ctx.phase === 'race' && this.defCool <= 0 && this.defT <= 0 && straight && bgap < 14 && behind.u > u - 1 && Math.random() < st.def * lv.agg * dt * 2.4) {
+        this.defOff = clamp(behind.lat, -hw, hw); this.defT = 1.3; this.defCool = 7 + Math.random() * 6;
+      }
+      if (this.defT > 0 && this.defOff !== null && !this.pass && !besideL && !besideR) target = this.defOff;
+      // voiture à côté : on garde son couloir, on s'écarte si elle serre
+      if (besideL && target > car.lat) target = Math.min(target, car.lat - 0.3);
+      if (besideR && target < car.lat) target = Math.max(target, car.lat + 0.3);
+      // obstacle imminent : esquive du côté libre
+      let slew = this.pass ? 4 : 3.2;
+      if (front && fgap < 14 && (u - front.u) > 2 && !this.pass) {
+        const sd = front.lat > car.lat ? -1 : 1;
+        if (!(sd > 0 ? besideL : besideR)) { target = clamp(front.lat + sd * (LANE + 0.2), -hw, hw); slew = 4.6; }
+      }
+      // départ : chacun garde son couloir jusqu'au premier freinage (pas de convergence au centre de la grille)
+      if (ctx.since < 7 && this.gridLat !== undefined && !this.pass && !pit) { target = this.gridLat; slew = 1.2; }
       const d0 = this.off;
-      this.off += clamp(target - d0, -3.2 * dt, 3.2 * dt);
+      this.off += clamp(target - d0, -slew * dt, slew * dt);
 
       // voie des stands
       let dOff = this.off, pitLat = -2.6; // voie rapide ; voie de travail près du stand
@@ -73,8 +137,9 @@
       // ---- vitesse cible ----
       const look = Math.ceil((Math.abs(u) * 0.35) / ds);
       let vt = Math.min(L.vmax[i], L.vmax[(i + look) % N]);
-      const pace = lv.pace * (1 + this.n1 * lv.noise * 0.6);
+      const pace = lv.pace * (1 + this.n1 * lv.noise * 0.6) * (0.985 + (this.drv.skill - 0.97) * 0.5);
       vt *= pace * this.gripScale(ctx.wet);
+      if (this.pass) vt *= 1 + 0.012 * lv.agg; // freinage un peu plus tardif pour conclure le dépassement
       if (this.errT > 0) vt *= 0.96;
       // hors piste : on revient doucement
       const off = Math.abs(car.lat) - tr.hw;
@@ -95,6 +160,16 @@
         }
         if (pit === 2) { inp.thr = 0; inp.brk = 1; inp.steer = 0; return; }
       }
+      // suivi : on ne tamponne jamais la voiture de devant, on garde la distance de l'écurie dans les freinages
+      if (front && !this.pass) {
+        const gapDes = st.gap + 0.12 * u * (1 - lv.agg * 0.5), closing = u - front.u;
+        let vf = front.u + (fgap - gapDes) * 0.55;
+        if (fgap < 2.5) vf = Math.min(vf, front.u - 3);
+        vt = Math.min(vt, Math.max(vf, 3));
+        if (closing > 4 && fgap < (closing * closing) / 26 + 4) { vt = Math.min(vt, front.u * 0.8); }
+      } else if (front && this.pass) vt = Math.min(vt, front.u + Math.max(0.5, (fgap - 4) * 0.4)); // on ne se rapproche pas tant qu'on n'est pas décalé
+      // voisin devant sur le côté : on le laisse passer plutôt que de se coller à lui
+      if (!front && (besideL || besideR)) for (const o of ctx.cars) { if (o === car || o.hidden || o.isSC) continue; const dd = o.dist - car.dist; if (dd > 0 && dd < CAR_LEN + 3 && Math.abs(o.lat - car.lat) < LANE + 0.9 && kHere > 1 / 300) { vt = Math.min(vt, o.u - 1.5); break; } }
       // drapeau jaune / safety car / formation
       if (ctx.speedCap) vt = Math.min(vt, ctx.speedCap(car, this));
       const e = vt - u;

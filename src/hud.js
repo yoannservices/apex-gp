@@ -85,7 +85,9 @@
       else if (type === 'lap' && mine) {
         this.secCol = [null, null, null]; this.secT = [0, 0, 0];
         this.toast((d.valid ? 'Tour ' : 'Tour invalide ') + A.fmt(d.t) + (d.fastest ? ' — MEILLEUR DE LA COURSE' : d.pb ? ' — record perso' : ''), d.fastest ? 'purple' : d.pb ? 'green' : d.valid ? '' : 'warn');
-      } else if (type === 'penalty' && mine) this.toast(`Pénalité +${d.secs} s`, 'warn', 5);
+      } else if (type === 'penalty' && mine) this.toast(`Pénalité +${d.secs} s — ${A.PEN_WHY[d.why] || d.why}`, 'warn', 5);
+      else if (type === 'blackwarn' && mine) this.toast("ATTENTION : encore une faute et c'est le drapeau noir", 'warn', 6);
+      else if (type === 'dsq') this.toast(mine ? 'DRAPEAU NOIR — vous êtes exclu de la course' : `${d.car.name} est exclu (drapeau noir)`, 'warn', mine ? 8 : 4);
       else if (type === 'limits' && mine) this.toast('Limites de piste — avertissement', 'warn');
       else if (type === 'puncture' && mine) this.toast('CREVAISON', 'warn', 5);
       else if (type === 'detach' && mine) this.toast('Pièce arrachée', 'warn');

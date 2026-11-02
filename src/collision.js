@@ -83,6 +83,7 @@
         const sev = resolve(a, b, h.n, pa, pb);
         if (sev > 0.5) {
           a.bumpT = b.bumpT = 1;
+          if (freshContact) emit && emit('contact', { a, b, sev });
           if (sev > 2 && freshContact) {
             const la = local(a, pa[0], pa[1]), lb = local(b, pb[0], pb[1]);
             const ds = sev;

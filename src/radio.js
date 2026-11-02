@@ -3,7 +3,6 @@
   const A = (globalThis.AGP = globalThis.AGP || {});
   const MINP = { minimal: 3, normal: 2, chatty: 1 };
   const PART = { fw: "l'aileron avant", rw: "l'aileron arrière", mirL: 'le rétroviseur gauche', mirR: 'le rétroviseur droit' };
-  const WHY = { limits: 'limites de piste', collision: 'collision', pitspeed: 'excès de vitesse aux stands' };
   const num = (t, d = 1) => t.toFixed(d).replace('.', ',');
   const synth = globalThis.speechSynthesis;
 
@@ -95,7 +94,9 @@
             this.say(`Tour en ${A.fmt(d.t)}. ${a ? 'Devant ' + num(R.gap(p, a)) + ' seconde.' : 'Tu mènes.'} ${b ? 'Derrière ' + num(R.gap(b, p)) + '.' : ''}`, 1, { key: 'lapinfo', cd: 55 });
           }
           break;
-        case 'penalty': if (mine) this.say(`Pénalité de ${d.secs} secondes. ${WHY[d.why] || ''}.`, 3); break;
+        case 'penalty': if (mine) this.say(`Pénalité de ${d.secs} ${d.secs > 1 ? 'secondes' : 'seconde'}. ${A.PEN_WHY[d.why] || ''}.`, 3); break;
+        case 'blackwarn': if (mine) this.say('Attention, tu approches du drapeau noir. Roule propre.', 3); break;
+        case 'dsq': this.say(mine ? 'Drapeau noir. Tu es exclu de la course, rentre doucement.' : `${d.car.name} est exclu, drapeau noir.`, mine ? 3 : 1, { key: 'dsq' + d.car.id, cd: 60 }); break;
         case 'limits': if (mine) this.say(d.n === 1 ? 'Attention aux limites de piste.' : 'Deuxième avertissement. Le prochain sera une pénalité.', 2, { key: 'limits', cd: 15 }); break;
         case 'yellow': if (!mine) this.say(`Drapeau jaune, secteur ${d.sector}.`, 2, { key: 'yellow', cd: 15 }); break;
         case 'sc':

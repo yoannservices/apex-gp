@@ -157,7 +157,7 @@
       el('tr', '', t).innerHTML = '<th>#</th><th>Pilote</th><th>Écurie</th><th>Tours</th><th>Temps</th><th>Meilleur</th><th>Pén.</th><th>Pts</th>';
       race.results.forEach(r => {
         const c = r.car, best = race.fastest && race.fastest.car === c;
-        el('tr', c.isPlayer ? 'me' : '', t).innerHTML = `<td>${r.dnf ? 'DNF' : r.pos}</td><td>${esc(c.name)}</td><td><i class="dot" style="background:${hex(c.team.color)}"></i>${c.team.name}</td><td>${r.laps}</td><td>${r.time ? (r.pos === 1 ? A.fmt(r.time) : A.fmtGap(r.gap)) : '—'}</td><td class="${best ? 'pur' : ''}">${r.best ? A.fmt(r.best) : '—'}</td><td>${r.pen ? '+' + r.pen + ' s' : ''}</td><td>${r.points || ''}</td>`;
+        el('tr', c.isPlayer ? 'me' : '', t).innerHTML = `<td>${r.dnf ? (c.dsq ? 'DSQ' : 'DNF') : r.pos}</td><td>${esc(c.name)}</td><td><i class="dot" style="background:${hex(c.team.color)}"></i>${c.team.name}</td><td>${r.laps}</td><td>${r.time ? (r.pos === 1 ? A.fmt(r.time) : A.fmtGap(r.gap)) : '—'}</td><td class="${best ? 'pur' : ''}">${r.best ? A.fmt(r.best) : '—'}</td><td title="${esc((c.penLog || []).map(x => '+' + x.secs + ' s ' + (A.PEN_WHY[x.why] || x.why) + ' (tour ' + x.lap + ')').join(' | '))}">${r.pen ? '+' + r.pen + ' s' : ''}</td><td>${r.points || ''}</td>`;
       });
       if (info.champ) this.champTable(p);
       const row = el('div', 'actions', p);

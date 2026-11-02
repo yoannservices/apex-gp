@@ -1,6 +1,6 @@
 // Gestionnaire de session : grille, feux, boucle physique à pas fixe, tours, secteurs, classement, arrivée.
 // Événements émis (race.on) : lights, start, lap, sector, pb, fastest, crash, wall, scrape, damage, detach, yellow, sc, penalty, limits,
-// drs, pitin, service, pitout, missed, overtake, finish, end, recover, dnf.
+// drs, pitin, service, pitout, missed, overtake, finish, end, recover, dnf, contact, blackwarn, dsq.
 (function () {
   const A = (globalThis.AGP = globalThis.AGP || {});
   const SUB = 1 / 240;
@@ -135,7 +135,7 @@
       const sinceStart = this.clock - this.startT;
       const ctx = {
         phase: this.phase === 'race' || this.phase === 'finished' ? (sinceStart < 4.5 && this.mode === 'race' && this.lightsOut && !this.cfg.rolling ? 'start' : 'race') : 'grid',
-        cars: this.all, wet: this.env.wet, sc: this.rules.sc.mode > 0,
+        cars: this.all, since: this.cfg.rolling ? 99 : sinceStart, wet: this.env.wet, sc: this.rules.sc.mode > 0,
         speedCap: c => (c.finished ? Math.min(42, this.rules.speedCap(c)) : this.rules.speedCap(c)),
       };
       if (this.cfg.rolling && this.phase === 'race' && sinceStart < 5) ctx.speedCap = () => 55;
@@ -158,7 +158,8 @@
     }
 
     _phys(type, d) {
-      if (type === 'crash') { this.rules.crash(d.a, d.b, d.sev); if (this.fx) this.fx.spark(d.x, 0.4, d.z, 0, 0, Math.min(40, 8 + d.sev * 2)); }
+      if (type === 'contact') this.rules.contact(d.a, d.b, d.sev);
+      else if (type === 'crash') { if (this.fx) this.fx.spark(d.x, 0.4, d.z, 0, 0, Math.min(40, 8 + d.sev * 2)); }
       else if (type === 'wall' && this.fx) this.fx.spark(d.x, 0.3, d.z, 0, 0, Math.min(40, 8 + d.sev * 2));
       else if (type === 'scrape' && this.fx && Math.random() < 0.5) this.fx.spark(d.x, 0.3, d.z, 0, 0, 3);
       this.emit(type, d);
@@ -217,6 +218,7 @@
       // fin de session
       if (!this.resultsDone) {
         const p = this._player;
+        if (this.forceEnd && this.clock > this.forceEnd) { this._results(); return; }
         if (p && p.finished && this.clock - p.finClock > 4 && (this.cars.every(c => c.finished || c.dnf) || this.clock - p.finClock > 130)) this._results();
       }
     }
