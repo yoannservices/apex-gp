@@ -13,6 +13,7 @@
   renderer.shadowMap.type = T.PCFSoftShadowMap;
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.domElement.id = 'gl'; app.appendChild(renderer.domElement);
+  A.renderer = renderer; // exposé pour les mesures de performance
   const camera = new T.PerspectiveCamera(65, 1, 0.1, 4000);
   const rig = new A.CameraRig(camera, app);
   const hud = new A.Hud(app); hud.show(false);

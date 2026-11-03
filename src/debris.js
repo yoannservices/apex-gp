@@ -67,6 +67,7 @@
       let lx, ly, lz;
       if (part.startsWith('wheel')) { const w = +part[5]; lx = A.WHEEL_MX[w]; ly = A.WHEEL_R[w]; lz = A.WHEEL_MZ[w]; }
       else { [lx, ly, lz] = at[part]; }
+      if (mesh.userData.center) { const c = mesh.userData.center; lx = c.x; ly = c.y; lz = c.z; }
       const vx = car.u * sh + car.v * ch, vz = car.u * ch - car.v * sh, big = part.startsWith('wheel') || part === 'fw' || part === 'rw';
       mesh.position.set(car.x + sh * lz + ch * lx, car.height + ly + 0.05, car.z + ch * lz - sh * lx);
       mesh.rotation.set(0, car.h, 0, 'YXZ');

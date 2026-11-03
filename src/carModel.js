@@ -84,6 +84,32 @@
     c.fillStyle = '#111'; c.font = 'bold 36px sans-serif'; c.textAlign = 'center'; c.fillText(n, 32, 45);
   });
 
+
+  // Le .glb est cadré puis découpé UNE fois (roues, aileron avant, aileron arrière) ; chaque voiture en reçoit un clone qui partage la géométrie.
+  let f1Proto;
+  const f1Pick = (o, c) => { // c : centre du triangle, repère voiture (+Z avant, +X gauche)
+    if (Math.abs(c.x) > 0.62) {
+      if (Math.hypot(c.z - 1.67, c.y - 0.34) < 0.45) return c.x > 0 ? 'w0' : 'w1';
+      if (Math.hypot(c.z + 2.0, c.y - 0.36) < 0.52) return c.x > 0 ? 'w2' : 'w3';
+    }
+    if (c.z > 2.35 && c.y < 0.5) return 'fw';
+    if (c.z < -2.55) return 'rw';
+  };
+  const prepF1 = () => f1Proto || (f1Proto = loadF1().then(async source => {
+    const G = await import(new URL('../../assets/glb.js', document.baseURI).href);
+    const visual = source.clone(true), holder = new T.Group();
+    let bounds = new T.Box3().setFromObject(visual), size = bounds.getSize(new T.Vector3());
+    visual.scale.setScalar(6 / Math.max(size.x, size.z));
+    bounds = new T.Box3().setFromObject(visual);
+    const center = bounds.getCenter(new T.Vector3());
+    visual.position.set(-center.x, -bounds.min.y, -center.z);
+    holder.add(visual); holder.updateMatrixWorld(true);
+    const C = G.carve(holder, f1Pick), centers = {};
+    for (const k in C) { C[k].forEach(o => (o.userData.part = k)); const b = new T.Box3(); C[k].forEach(o => b.expandByObject(o)); centers[k] = b.getCenter(new T.Vector3()); }
+    holder.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+    return { holder, C, centers };
+  }));
+
   A.buildCarModel = (teamIdx, number) => {
     const team = A.TEAMS[teamIdx];
     if (!cache[teamIdx]) { cache[teamIdx] = build(team); Object.values(cache[teamIdx]).flat().forEach(g => (g.userData.shared = true)); }
@@ -127,23 +153,23 @@
     m.low = new T.Mesh(G.low, bodyMat); m.low.visible = false; root.add(m.low);
     m.head = new T.Object3D(); m.head.position.set(0, 0.85, 0.05); hi.add(m.head); // œil du pilote
     m.shadowOn = true;
-    loadF1().then(source => {
-      const visual = source.clone(true);
-      visual.rotation.y = 0;
-      let bounds = new T.Box3().setFromObject(visual), size = bounds.getSize(new T.Vector3());
-      visual.scale.setScalar(6 / Math.max(size.x, size.z));
-      bounds = new T.Box3().setFromObject(visual);
-      const center = bounds.getCenter(new T.Vector3());
-      visual.position.set(-center.x, -bounds.min.y, -center.z);
-      visual.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+    prepF1().then(P => {
+      const visual = P.holder.clone(true);
       root.add(visual); // frère de hi : hi est masqué une fois le modèle chargé
-      m.glb = visual; m.hi.visible = false; m.low.visible = false;
+      m.glb = visual; m.glbP = P; m.hi.visible = false; m.low.visible = m.lodFar; visual.visible = !m.lodFar; m.mask = -1;
+      m.gParts = {}; visual.traverse(o => { if (o.userData.part) (m.gParts[o.userData.part] = m.gParts[o.userData.part] || []).push(o); });
     }).catch(() => { m.hi.visible = true; m.low.visible = false; });
     return m;
   };
 
   // Copie d'une pièce pour les débris (partage la géométrie).
   A.clonePart = (m, name) => {
+    const pk = name.startsWith('wheel') ? 'w' + name[5] : name, list = m.glbP && m.glbP.C[pk];
+    if (list) { // pièce découpée dans le .glb : on la copie telle quelle, centrée sur elle-même
+      const ctr = m.glbP.centers[pk], g = new T.Group();
+      for (const s of list) { const o = new T.Mesh(s.geometry, s.material); o.applyMatrix4(s.matrixWorld); o.position.sub(ctr); o.castShadow = true; g.add(o); }
+      g.userData.center = ctr; return g;
+    }
     const G = cache[A.TEAMS.indexOf(m.team)];
     if (name === 'fw') return new T.Mesh(G.fw, bodyMat);
     if (name === 'rw') { const g = new T.Group(); g.add(new T.Mesh(G.rw, bodyMat)); const f = new T.Mesh(G.flap, bodyMat); f.position.set(0, 1.02, -2.38); g.add(f); return g; }
@@ -159,7 +185,14 @@
     const rough = car.surf[0] === 1 || car.surf[1] === 1 || car.surf[2] === 1 || car.surf[3] === 1 ? Math.sin(car.t * 90) * 0.008 : 0;
     root.position.set(car.x, car.height + rough + (car.lift || 0), car.z);
     root.rotation.set(-car.ax * 0.0022, car.h, car.ay * 0.0012 - car.bank, 'YXZ');
-    if (far !== m.lodFar) { m.lodFar = far; m.hi.visible = m.glb ? false : !far; m.low.visible = m.glb ? false : far; }
+    if (far !== m.lodFar) { m.lodFar = far; m.hi.visible = m.glb ? false : !far; m.low.visible = far; if (m.glb) m.glb.visible = !far; }
+    if (m.glb && !far) {
+      const mask = (d.fwOff ? 1 : 0) | (d.rwOff ? 2 : 0) | (d.wheel[0] ? 0 : 4) | (d.wheel[1] ? 0 : 8) | (d.wheel[2] ? 0 : 16) | (d.wheel[3] ? 0 : 32);
+      if (mask !== m.mask) {
+        m.mask = mask; const P = m.gParts, vis = (k, v) => P[k] && P[k].forEach(o => (o.visible = v));
+        vis('fw', !d.fwOff); vis('rw', !d.rwOff); for (let w = 0; w < 4; w++) vis('w' + w, d.wheel[w]);
+      }
+    }
     m.low.castShadow = m.hi.visible ? false : cast;
     if (far) return;
     if (m.shadowOn !== cast) { m.shadowOn = cast; m.casters.forEach(o => (o.castShadow = cast)); }
