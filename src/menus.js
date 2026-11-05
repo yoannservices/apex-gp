@@ -9,7 +9,7 @@
   const CONTROLS = [
     ['Z / ↑ · S / ↓', 'Accélérer · freiner'], ['Q / D · ← →', 'Direction'], ['E / Maj · F / Ctrl', 'Rapport supérieur · inférieur (boîte manuelle)'],
     ['Espace', 'DRS (zone de DRS, voiture à moins de 1 s)'], ['X', 'Demander / annuler un arrêt au stand'], ['C', 'Changer de caméra'], ['V (maintenu)', 'Regarder derrière'],
-    ['G', 'Mode économie de carburant'], ['T', "Point de l'ingénieur"], ['Y / N', "Répondre à l'ingénieur"], ['R · Maj+R', 'Replacer la voiture · recommencer'], ['Échap / P', 'Pause'], ['Manette', 'Gâchettes gaz/frein, stick gauche, A DRS, X stand, Y caméra, bumpers rapports, Start pause'],
+    ['G', 'Mode économie de carburant'], ['T', "Point de l'ingénieur"], ['Y / N', "Répondre à l'ingénieur"], ['R · Maj+R', 'Replacer la voiture · recommencer'], ['Échap / P', 'Pause'], ['Manette', 'Gâchettes gaz/frein, stick gauche direction, A DRS, croix haut stand, Y caméra, X remettre en piste (maintenir : redémarrer), bumpers rapports, Start pause'],
   ];
 
   A.Menus = {

@@ -30,10 +30,10 @@
     actions() {
       const p = this._pollPad(), h = c => hit.has(c), a = {};
       a.drs = h('Space') || p.btn[0]; a.up = h('KeyE') || h('ShiftLeft') || h('ShiftRight') || p.btn[5]; a.down = h('KeyF') || h('ControlLeft') || p.btn[4];
-      a.pit = h('KeyX') || p.btn[2]; a.cam = h('KeyC') || p.btn[3]; a.pause = h('Escape') || h('KeyP') || p.btn[9];
+      a.pit = h('KeyX') || p.btn[12]; a.cam = h('KeyC') || p.btn[3]; a.pause = h('Escape') || h('KeyP') || p.btn[9];
       a.yes = h('KeyY') || p.btn[14]; a.no = h('KeyN') || p.btn[15]; a.eco = h('KeyG'); a.look = down.has('KeyV') || !!(p.btn[10]);
       a.radio = h('KeyT'); a.map = h('KeyM'); a.mirror = h('KeyB');
-      a.restart = h('KeyR') && down.has('ShiftLeft'); a.reset = h('KeyR') && !down.has('ShiftLeft'); a.one = h('Digit1'); a.two = h('Digit2'); a.three = h('Digit3');
+      a.restart = (h('KeyR') && down.has('ShiftLeft')) || p.xLong; a.reset = (h('KeyR') && !down.has('ShiftLeft')) || p.xShort; // manette : X bref = remise en piste, X maintenu 1,5 s = redémarrer a.one = h('Digit1'); a.two = h('Digit2'); a.three = h('Digit3');
       return a;
     },
 
@@ -47,6 +47,9 @@
         out.thr = g.buttons[7] ? g.buttons[7].value : 0; out.brk = g.buttons[6] ? g.buttons[6].value : 0;
         g.buttons.forEach((b, i) => { out.btn[i] = b.pressed && !pad.prev[i]; pad.prev[i] = b.pressed; });
         if (g.buttons[12] && g.buttons[12].pressed) out.thr = Math.max(out.thr, 1);
+        const x = g.buttons[2] && g.buttons[2].pressed, t = performance.now();
+        if (x) { if (!pad.xT) pad.xT = t; if (!pad.xF && t - pad.xT > 1500) { pad.xF = true; out.xLong = true; } }
+        else { if (pad.xT && !pad.xF) out.xShort = true; pad.xT = 0; pad.xF = false; }
         break;
       }
       this.pad = out.on;

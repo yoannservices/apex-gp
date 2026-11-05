@@ -10,7 +10,7 @@
     agressif: { err: 1.1, att: 32, def: 0.6, gap: 5.5 },
     cannibale: { err: 1.4, att: 42, def: 0.85, gap: 4.5 },
   };
-  const CAR_LEN = 5.6, LANE = 2.2, PASS_SEP = 2.55;
+  const CAR_LEN = 5.6, LANE = 2.2, PASS_SEP = 2.9;
 
   A.Driver = class Driver {
     constructor(car, tr, line, drv) {
@@ -54,7 +54,7 @@
         if (o === car || o.hidden || o.isSC || o.pit.state || o.idx < 0) continue;
         const dd = o.dist - car.dist; if (dd > 90 || dd < -22) continue;
         const dl = o.lat - car.lat, adl = Math.abs(dl);
-        if (dd > 0 && adl < LANE + 0.4 && dd - CAR_LEN < fgap) { front = o; fgap = dd - CAR_LEN; }
+        if (dd > 0 && adl < LANE + (o.u < 8 ? 1.0 : 0.4) && dd - CAR_LEN < fgap) { front = o; fgap = dd - CAR_LEN; }
         if (dd < -1 && adl < LANE && -dd < bgap) { behind = o; bgap = -dd; }
         if (Math.abs(dd) < CAR_LEN + 1.5 && adl < LANE + 0.9) { if (dl > 0) besideL = true; else besideR = true; }
       }
@@ -110,6 +110,18 @@
       }
       // départ : chacun garde son couloir jusqu'au premier freinage (pas de convergence au centre de la grille)
       if (ctx.since < 7 && this.gridLat !== undefined && !this.pass && !pit) { target = this.gridLat; slew = 1.2; }
+      // séparation latérale : jamais moins de 2.7 m avec une voiture à notre hauteur ; sans place, la plus en arrière lève le pied
+      let squeeze = null;
+      if (!pit) for (const o of ctx.cars) {
+        if (o === car || o.hidden || o.isSC || o.pit.state || o.idx < 0) continue;
+        const dd = o.dist - car.dist; const win = CAR_LEN + 1.5 + Math.min(8, Math.abs(o.u - u) * 0.5); if (dd > win || dd < -win) continue; // fenêtre élargie quand la vitesse relative est grande
+        if (Math.abs(target - o.lat) < 2.7) {
+          const sg = Math.abs(car.lat - o.lat) > 0.25 ? Math.sign(car.lat - o.lat) : (car.id - o.id >= 0 ? 1 : -1);
+          target = clamp(o.lat + sg * 2.7, -hw, hw);
+          if (Math.abs(target - o.lat) < 2.7 - 0.35 && dd > -1) squeeze = o;
+          if (Math.abs(car.lat - o.lat) < 2.7 * 0.6 && dd > 0.5) squeeze = o; // déjà trop près : celle de derrière lève le pied
+        }
+      }
       const d0 = this.off;
       this.off += clamp(target - d0, -slew * dt, slew * dt);
 
@@ -168,6 +180,16 @@
         vt = Math.min(vt, Math.max(vf, 3));
         if (closing > 4 && fgap < (closing * closing) / 26 + 4) { vt = Math.min(vt, front.u * 0.8); }
       } else if (front && this.pass) vt = Math.min(vt, front.u + Math.max(0.5, (fgap - 4) * 0.4)); // on ne se rapproche pas tant qu'on n'est pas décalé
+      // distance de sécurité cinématique : on doit pouvoir s'arrêter derrière la voiture de devant, même si elle freine à fond
+      let vsafe = 1e9, gapNeed = 0;
+      if (front && Math.abs(front.lat - car.lat) < LANE + 0.5) {
+        const B = A.BOT, aS = 0.6 * (Math.min(0.9 * B.mu * (B.g + (B.cd * u * u) / B.mass), (B.brake / B.mass) * 0.92) + (B.drag * u * u) / B.mass);
+        const vf = front.drv && front.drv.vtCmd != null && !(front.isPlayer && !front.auto_ap) ? Math.min(front.u, front.drv.vtCmd) : Math.max(0, front.u + Math.min(0, front.axL != null ? front.axL : front.ax || 0) * 0.6);
+        gapNeed = Math.max(fgap - 2.0 - u * 0.12, 0.3);
+        vsafe = Math.sqrt(Math.max(0, vf * vf + 2 * aS * gapNeed));
+        vt = Math.min(vt, vsafe);
+      }
+      if (squeeze && squeeze.dist > car.dist) vt = Math.min(vt, squeeze.u - 1.5);
       // voisin devant sur le côté : on le laisse passer plutôt que de se coller à lui
       if (!front && (besideL || besideR)) for (const o of ctx.cars) { if (o === car || o.hidden || o.isSC) continue; const dd = o.dist - car.dist; if (dd > 0 && dd < CAR_LEN + 3 && Math.abs(o.lat - car.lat) < LANE + 0.9 && kHere > 1 / 300) { vt = Math.min(vt, o.u - 1.5); break; } }
       // drapeau jaune / safety car / formation
@@ -179,6 +201,11 @@
         inp.brk = e < -0.8 ? clamp(-e * 0.14, 0, 1) : 0;
         if (vt <= 0.01) { inp.thr = 0; inp.brk = 1; }
       }
+      if (vsafe < 1e8 && u > vsafe + 0.5) { // freinage proportionnel à la décélération nécessaire (pas seulement à l'écart de vitesse)
+        const B = A.BOT, aMax = Math.min(0.9 * B.mu * (B.g + (B.cd * u * u) / B.mass), (B.brake / B.mass) * 0.92) + (B.drag * u * u) / B.mass;
+        inp.brk = Math.max(inp.brk, clamp(((u * u - vsafe * vsafe) / (2 * gapNeed)) / aMax, 0, 1)); inp.thr = 0;
+      }
+      this.vtCmd = vt;
       // sécurité : trop de glissement -> on lève
       if (car.slip > 0.3 && inp.thr > 0.3) inp.thr *= 0.5;
       if (car.locked > 0 && !car.assists.abs) inp.brk *= 0.6;
