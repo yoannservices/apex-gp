@@ -80,7 +80,7 @@
     const city = tr.city;
     const geo = city ? new T.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
       : A.merge([A.cyl(0.3, 0.4, 2.4, 6, 0x5b4630, 0, 1.2, 0), A.part(new T.ConeGeometry(2.6, 6, 7), 0x2f6a35, 0, 5, 0), A.part(new T.ConeGeometry(2, 4.5, 7), 0x3a7d40, 0, 7.6, 0)]);
-    for (let n = 0, tries = 0; n < (city ? 260 : 480) && tries < 4000; tries++) {
+    for (let n = 0, tries = 0; n < (city ? 260 : 0) && tries < 4000; tries++) {
       const i = Math.floor(rnd() * N), side = rnd() < 0.5 ? 1 : -1, dd = wall(i, side) + (city ? 5 + rnd() * 40 : 10 + rnd() * 90);
       const x = tr.px[i] + tr.nx[i] * side * dd, z = tr.pz[i] + tr.nz[i] * side * dd;
       if (!far(x, z, wall(i, side) + (city ? 4 : 8))) continue;
