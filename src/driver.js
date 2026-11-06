@@ -149,9 +149,10 @@
       // ---- vitesse cible ----
       const look = Math.ceil((Math.abs(u) * 0.35) / ds);
       let vt = Math.min(L.vmax[i], L.vmax[(i + look) % N]);
-      const pace = lv.pace * (1 + this.n1 * lv.noise * 0.6) * (0.985 + (this.drv.skill - 0.97) * 0.5);
-      vt *= pace * this.gripScale(ctx.wet);
-      if (this.pass) vt *= 1 + 0.012 * lv.agg; // freinage un peu plus tardif pour conclure le dépassement
+      // jamais au-dessus de la limite de la voiture (même perf que le joueur) : seules les trajectoires font gagner du temps
+      const pace = Math.min(1, lv.pace * (1 + this.n1 * lv.noise * 0.6) * (0.985 + (this.drv.skill - 0.97) * 0.5)), vLim = vt * this.gripScale(ctx.wet);
+      vt = vLim * pace;
+      if (this.pass) vt = Math.min(vt * (1 + 0.012 * lv.agg), vLim); // freinage un peu plus tardif pour conclure le dépassement, sans dépasser la limite // freinage un peu plus tardif pour conclure le dépassement
       if (this.errT > 0) vt *= 0.96;
       // hors piste : on revient doucement
       const off = Math.abs(car.lat) - tr.hw;
