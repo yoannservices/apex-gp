@@ -6,12 +6,6 @@
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const KINDS = { race: 'Course', tt: 'Contre-la-montre', champ: 'Championnat', practice: 'Essais libres' };
 
-  const CONTROLS = [
-    ['Z / ↑ · S / ↓', 'Accélérer · freiner'], ['Q / D · ← →', 'Direction'], ['E / Maj · F / Ctrl', 'Rapport supérieur · inférieur (boîte manuelle)'],
-    ['Espace', 'DRS (zone de DRS, voiture à moins de 1 s)'], ['X', 'Demander / annuler un arrêt au stand'], ['C', 'Changer de caméra'], ['V (maintenu)', 'Regarder derrière'],
-    ['G', 'Mode économie de carburant'], ['T', "Point de l'ingénieur"], ['Y / N', "Répondre à l'ingénieur"], ['R · Maj+R', 'Replacer la voiture · recommencer'], ['Échap / P', 'Pause'], ['Manette', 'Gâchettes gaz/frein, stick gauche direction, A DRS, croix haut stand, Y caméra, X remettre en piste (maintenir : redémarrer), bumpers rapports, Start pause'],
-  ];
-
   A.Menus = {
     init(container, app) {
       this.app = app; this.root = el('div', 'menu', container); this.root.style.display = 'none';
@@ -75,7 +69,7 @@
       this._btn(p, 'Contre-la-montre', () => this.setup('tt'));
       this._btn(p, ch && !A.Champ.finished() ? `Championnat — manche ${ch.round + 1}/${A.TRACK_DEFS.length}` : 'Championnat', () => this.champ());
       this._btn(p, 'Essais libres', () => this.setup('practice'));
-      this._btn(p, 'Réglages', () => this.settings(), 'alt'); this._btn(p, 'Records', () => this.records(), 'alt'); this._btn(p, 'Commandes', () => this.controls(), 'alt');
+      this._btn(p, 'Aides & audio', () => this.settings(), 'alt'); this._btn(p, 'Records', () => this.records(), 'alt');
     },
 
     setup(kind) {
@@ -117,12 +111,6 @@
         const x = r[d.id], tr = el('tr', '', t);
         tr.innerHTML = `<td>${d.name}</td><td>${x ? A.fmt(x.best) : '—'}</td>` + [0, 1, 2].map(i => `<td>${x && x.sectors ? x.sectors[i].toFixed(2) : '—'}</td>`).join('') + `<td>${x ? A.COMPOUNDS[x.compound].name : '—'}</td>`;
       });
-      this._btn(el('div', 'actions', p), 'Retour', () => this.main(), 'alt');
-    },
-
-    controls() {
-      const p = this._screen('Commandes'), t = el('table', '', p);
-      CONTROLS.forEach(c => { el('tr', '', t).innerHTML = `<td><b>${c[0]}</b></td><td>${c[1]}</td>`; });
       this._btn(el('div', 'actions', p), 'Retour', () => this.main(), 'alt');
     },
 

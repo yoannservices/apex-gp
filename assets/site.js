@@ -62,6 +62,7 @@
     { cat: 'loisirs', path: 'loisirs/downhill-riders/', mini: true, name: 'Downhill Riders', desc: 'VTT de descente freestyle : pistes par graine, tricks, biomes, boutique' },
     { cat: 'loisirs', path: 'loisirs/rally-masters/', mini: true, name: 'Rally Masters', desc: 'Rallye avec copilote : spéciales par graine, surfaces, météo, dégâts, championnat' },
     { cat: 'loisirs', path: 'loisirs/rail-express/', mini: true, name: 'Rail Express',      desc: 'Conduite ferroviaire : signalisation, gares et procédures' },
+    { cat: 'loisirs', path: 'loisirs/pompiers-18/', mini: true, name: 'Pompiers 18', desc: 'Sapeur-pompier : alerte 18, FPT, lance et ARI dans une maison en feu' },
     { cat: 'loisirs', path: 'loisirs/fpv-racer/', mini: true, name: 'FPV Racer',  desc: 'Drone FPV acro : tunnels, bando, course et suivi de voitures en drift' },
     { cat: 'loisirs', path: 'loisirs/apex-gp/',             name: 'Apex GP',                desc: 'Simulation de F1 : 8 circuits, 19 bots, météo, stands, radio' },
     { cat: 'loisirs', path: 'loisirs/moto-gp/',             name: 'Moto GP',                desc: 'Simulation de MotoGP : 8 circuits, 21 bots, inclinaison réaliste, stands, météo' },
