@@ -1,16 +1,16 @@
 // Qualité graphique commune des jeux Three.js : distance d'affichage à 3 seuils (proche / moyen / rien), brouillard calé sur la coupure,
 // camera.far réduit, ombres plus légères ou coupées, plafond 30 FPS. Branché par perf.js (aucun changement dans le code des jeux).
 // Réglages sauvegardés dans localStorage. Échelle de distance par jeu : <html data-lod="3"> (défaut 1 ; un simulateur de vol met 8).
-const KEY = 'site.quality.v1';
+const KEY = 'site.quality.v2'; // v2 : tout le monde repart en qualité Moyen
 export const LEVELS = {
   haut: { name: 'Haut', d1: 140, d2: 700, shadow: 2048 },
   moyen: { name: 'Moyen', d1: 90, d2: 420, shadow: 1024 },
   bas: { name: 'Bas', d1: 55, d2: 240, shadow: 512 },
 };
 const ORDER = ['haut', 'moyen', 'bas'];
-export const Q = { mode: 'auto', shadows: true, fps30: false, auto: 'haut', dist: 'normal', small: true, guide: 'both' }; // mode : auto | haut | moyen | bas ; auto = niveau choisi selon les FPS
+export const Q = { mode: 'moyen', shadows: true, fps30: false, auto: 'haut', dist: 'normal', small: true, guide: 'both' }; // mode : auto | haut | moyen | bas ; auto = niveau choisi selon les FPS
 try { Object.assign(Q, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* stockage indisponible */ }
-if (Q.mode !== 'auto' && !LEVELS[Q.mode]) Q.mode = 'auto';
+if (Q.mode !== 'auto' && !LEVELS[Q.mode]) Q.mode = 'moyen';
 const DIST = { court: 0.6, normal: 1, long: 1.6 };
 if (!DIST[Q.dist]) Q.dist = 'normal';
 if (!['both', 'haut', 'sol'].includes(Q.guide)) Q.guide = 'both';
