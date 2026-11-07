@@ -129,6 +129,17 @@
     resize(); hud.toast('Qualité réduite pour garder la fluidité', '', 3);
   }
 
+  // Guidage : tracé de chevrons sur la ligne de course et flèche en haut vers le point 35 m devant (réglage « Guidage » de assets/quality.js)
+  function guide(p, race) {
+    const GS = window.GameSettings; if (!GS) return;
+    if (!S.guide || S.guide.sc !== S.scene) { if (S.guide) S.guide.g.dispose(); S.guide = { sc: S.scene, g: GS.ground(T, S.scene) }; }
+    const L = race.line, N = race.tr.N, ds = race.tr.ds, i0 = p.idx < 0 ? 0 : p.idx, pts = [{ x: p.x, y: 0, z: p.z }];
+    for (let k = 2; k < Math.ceil(140 / ds); k++) { const i = (i0 + k) % N; pts.push({ x: L.px[i], y: 0, z: L.pz[i] }); }
+    S.guide.g.update(pts, performance.now() / 1000);
+    const t = pts[Math.min(pts.length - 1, Math.ceil(35 / ds))];
+    GS.arrow(Math.atan2(t.x - p.x, t.z - p.z) - p.h);
+  }
+
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -145,7 +156,7 @@
         if (act.restart) return App.restart(), A.Input.endFrame();
         race.setPlayer({ steer: A.Input.steer, thr: A.Input.thr, brk: A.Input.brk }, act);
         race.update(dt);
-        rig.update(dt, race, act.look);
+        rig.update(dt, race, act.look); guide(p, race);
         S.weather.update(dt, camera, p);
         S.radio.update(dt, act);
         if (S.ghost && p.lap >= 1) {
