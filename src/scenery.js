@@ -54,7 +54,12 @@
     // ---- tribunes + spectateurs ----
     const standParts = [];
     for (let r = 0; r < 4; r++) standParts.push(A.box(60, 1.2, 3, r & 1 ? 0x7d8288 : 0x90959b, 0, 0.6 + r * 1.2, 1.5 + r * 3));
-    standParts.push(A.box(62, 0.4, 14, 0x2c5fb8, 0, 7.4, 8), A.box(0.5, 7, 0.5, 0x4a4d52, -29, 3.7, 12.5), A.box(0.5, 7, 0.5, 0x4a4d52, 29, 3.7, 12.5));
+    // tribune : gradins, contremarches sombres, mur du fond, joues latérales, 6 poteaux, toit à bandeau et garde-corps avant
+    standParts.push(A.box(62, 0.4, 14, 0x2c5fb8, 0, 7.4, 8), A.box(62.4, 0.7, 0.3, 0xe8e8e8, 0, 7.2, 1.0));
+    for (const x of [-29, -17.4, -5.8, 5.8, 17.4, 29]) standParts.push(A.box(0.4, 7.2, 0.4, 0x4a4d52, x, 3.6, 13.2));
+    standParts.push(A.box(60.8, 7.2, 0.3, 0x6c7278, 0, 3.6, 13.6));
+    for (const x of [-30.2, 30.2]) standParts.push(A.box(0.4, 5.6, 13, 0x6c7278, x, 2.8, 7));
+    standParts.push(A.box(60, 1.0, 0.06, 0x2a2d31, 0, 0.5, -0.1));
     const standGeo = A.merge(standParts), specGeo = new T.BoxGeometry(0.5, 1.1, 0.45).translate(0, 0.55, 0);
     const stands = [], specs = [], specCols = [], tmp = new T.Matrix4(), tmp2 = new T.Matrix4(), col = new T.Color();
     const pal = [0xd8101a, 0x1747d6, 0xf2f2f2, 0xf2d21b, 0x0c8f4a, 0xff7a00, 0x222222];
@@ -78,18 +83,30 @@
     const far = (x, z, minD) => { for (let k = 0; k < N; k += 2) { const dx = x - tr.px[k], dz = z - tr.pz[k]; if (dx * dx + dz * dz < minD * minD) return false; } return true; };
     const decor = [], dcol = [];
     const city = tr.city;
-    const geo = city ? new T.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
-      : A.merge([A.cyl(0.3, 0.4, 2.4, 6, 0x5b4630, 0, 1.2, 0), A.part(new T.ConeGeometry(2.6, 6, 7), 0x2f6a35, 0, 5, 0), A.part(new T.ConeGeometry(2, 4.5, 7), 0x3a7d40, 0, 7.6, 0)]);
+    // immeubles : 6 modèles du kit commun (assets/building-kit.js), façade principale tournée vers la piste
+    const K = BuildingKit(T);
+    const ARCH = [
+      { w: 16, d: 14, h: 19, fh: 3.2, roof: 'flat', shop: true, door: '-z', doorType: 'block', balcony: 'alt', win: [1.3, 1.6], m: { wall: '#b06a52', style: 'brick', awning: '#b3262e' } },
+      { w: 22, d: 18, h: 30, fh: 3.3, roof: 'flat', shop: true, door: '-z', doorType: 'block', shutters: true, win: [1.3, 1.6], m: { wall: '#d8cbb3', style: 'stucco', awning: '#2b5d8a' } },
+      { w: 26, d: 20, h: 45, fh: 3.5, roof: 'flat', facade: 'ribbon', shop: true, door: '-z', doorType: 'block', m: { wall: '#b0aba2', style: 'stone', glass: '#2c4357' } },
+      { w: 20, d: 20, h: 62, fh: 3.6, gfh: 5, roof: 'flat', facade: 'curtain', mast: 10, m: { wall: '#8a97a6', style: 'concrete', frame: '#3c4652', glass: '#5a7a96' } },
+      { w: 14, d: 12, h: 13, fh: 3.2, roof: 'flat', shop: true, door: '-z', doorType: 'block', shutters: true, m: { wall: '#e2d6bf', style: 'stucco', awning: '#2f7a4a' } },
+      { w: 28, d: 22, h: 24, fh: 3.4, roof: 'flat', shop: true, door: '-z', doorType: 'block', balcony: true, win: [1.4, 1.6], m: { wall: '#9a5a46', style: 'brick', awning: '#c98a1a' } },
+    ];
+    const bplace = ARCH.map(() => []);
     for (let n = 0, tries = 0; n < (city ? 260 : 0) && tries < 4000; tries++) {
-      const i = Math.floor(rnd() * N), side = rnd() < 0.5 ? 1 : -1, dd = wall(i, side) + (city ? 5 + rnd() * 40 : 10 + rnd() * 90);
+      const i = Math.floor(rnd() * N), side = rnd() < 0.5 ? 1 : -1, k = Math.floor(rnd() * ARCH.length), a = ARCH[k];
+      const dd = wall(i, side) + Math.max(a.w, a.d) / 2 + 4 + rnd() * 36;
       const x = tr.px[i] + tr.nx[i] * side * dd, z = tr.pz[i] + tr.nz[i] * side * dd;
-      if (!far(x, z, wall(i, side) + (city ? 4 : 8))) continue;
-      const sc = city ? new T.Vector3(10 + rnd() * 18, 14 + rnd() * 50, 10 + rnd() * 18) : new T.Vector3(1, 1, 1).multiplyScalar(0.8 + rnd() * 0.9);
-      decor.push(new T.Matrix4().compose(new T.Vector3(x, 0, z), new T.Quaternion().setFromAxisAngle(up, rnd() * 6.28), sc));
-      if (city) dcol.push(col.setHSL(0.58 + rnd() * 0.1, 0.08 + rnd() * 0.2, 0.35 + rnd() * 0.3).clone());
+      if (!far(x, z, wall(i, side) + Math.max(a.w, a.d) / 2 + 2)) continue;
+      bplace[k].push(new T.Matrix4().compose(new T.Vector3(x, 0, z), new T.Quaternion().setFromAxisAngle(up, Math.atan2(tr.px[i] - x, tr.pz[i] - z)), new T.Vector3(1, 1, 1)));
       n++;
     }
-    inst(geo, city ? new T.MeshStandardMaterial({ roughness: 0.8 }) : vmat(), decor, city ? dcol : null);
+    ARCH.forEach((a, k) => {
+      if (!bplace[k].length) return;
+      const acc = K.acc(); K.building(acc, { ...a, rand: rnd });
+      group.add(K.instanced(acc.geometries(), K.materials(a.m), bplace[k]));
+    });
 
     // ---- lampadaires ----
     const poles = [], heads = [];
