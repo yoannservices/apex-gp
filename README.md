@@ -43,3 +43,14 @@ Moto GP (`loisirs/moto-gp/`) reprend cette structure avec une moto.
 ## Évitement des contacts (IA)
 
 `driver.js` : distance de sécurité cinématique derrière la voiture de devant (elle peut freiner à fond, on s'arrête quand même ; on anticipe sa vitesse cible), freinage proportionnel à la décélération nécessaire, écart latéral minimal de 2,7 m avec toute voiture à notre hauteur (fenêtre élargie selon la vitesse relative), la voiture la plus en arrière lève le pied quand il n'y a plus de place, épaves à l'arrêt traitées comme obstacles. Mesure : `node test/contacts.js [circuit] [tours] [niveau] [apex|moto]` (contacts classés par cause ; `V=1`, `H=1`, `O=1` pour le détail). `sh test/multi-contacts.sh apex|moto` : 3 circuits.
+
+## Fiche technique
+
+Résumé de ce que fait le code, tenu à jour à chaque modification : le lire suffit pour vérifier une information sans relire tout le jeu.
+
+- **Code** : scripts classiques sous `globalThis.AGP`, chargés par `three-compat.js` (liste `data-scripts` dans `index.html`).
+- **Monoplace** : modèle procédural (`src/carModel.js`, `build`) affiché puis remplacé par `assets/models/f1-lp830.glb` (SDC Performance, CC-BY) dès son chargement. Le modèle est mis à 6 m de long, avant sur +Z, puis découpé une seule fois triangle par triangle (`carve` de `assets/glb.js`, règle `f1Pick`) :
+  - roues avant = nœud `Car.001` (|x| > 0,62), roues arrière = `Car.002` ;
+  - aileron avant : z > 2,4 et y < 0,45 ; aileron arrière : z < −2,8 et y > 0,35.
+  Ces pièces disparaissent ou deviennent des débris selon les dégâts. Les roues du modèle ne tournent pas.
+- **Caméras (C, `src/camera.js`)** : `chase`, `cockpit` (œil `m.head` à (0 ; 0,85 ; 0,05) + 0,1 m), `tcam`, `tv` ; V = regarder derrière.

@@ -53,7 +53,8 @@
         this._fov(60 + clamp(sp / 90, 0, 1) * 14, dt);
       } else if (mode === 'cockpit' || mode === 'tcam') {
         m.root.updateMatrixWorld(true);
-        if (mode === 'cockpit') { m.head.getWorldPosition(p); p.y += 0.1; } // œil relevé pour voir la piste au-dessus du museau else m.root.localToWorld(p.set(0, 1.28, -0.55));
+        // cockpit : œil relevé pour voir la piste au-dessus du museau
+        if (mode === 'cockpit') { m.head.getWorldPosition(p); p.y += 0.1; } else m.root.localToWorld(p.set(0, 1.45, -0.55)); // T-cam : posée sur la prise d'air, au-dessus du pilote
         m.root.getWorldQuaternion(this.q);
         this.q2.setFromAxisAngle(UP, (look ? 0 : Math.PI) + (mode === 'cockpit' ? c.in.steer * 0.1 : 0));
         cam.position.copy(p); cam.quaternion.copy(this.q).multiply(this.q2);

@@ -10,9 +10,9 @@
   let bodyMat, tireMat, stripeMats, glassMat, f1Source;
   const loadF1 = () => {
     if (f1Source) return f1Source;
-    const end = globalThis.GameLoader && globalThis.GameLoader.begin('Modèle 3D F1.glb');
+    const end = globalThis.GameLoader && globalThis.GameLoader.begin('Modèle 3D f1-lp830.glb');
     f1Source = import('three/addons/loaders/GLTFLoader.js')
-      .then(({ GLTFLoader }) => new GLTFLoader().loadAsync(new URL('../../assets/models/F1.glb', document.baseURI).href))
+      .then(({ GLTFLoader }) => new GLTFLoader().loadAsync(new URL('../../assets/models/f1-lp830.glb', document.baseURI).href))
       .then(gltf => { if (end) end(); return gltf.scene; }, error => { if (end) end(error); throw error; });
     return f1Source;
   };
@@ -87,13 +87,14 @@
 
   // Le .glb est cadré puis découpé UNE fois (roues, aileron avant, aileron arrière) ; chaque voiture en reçoit un clone qui partage la géométrie.
   let f1Proto;
-  const f1Pick = (o, c) => { // c : centre du triangle, repère voiture (+Z avant, +X gauche)
+  const f1Pick = (o, c) => { // c : centre du triangle, repère voiture (+Z avant, +X gauche) ; f1-lp830.glb : roues avant dans Car.001, arrière dans Car.002
+    const p = o.parent ? o.parent.name : '';
     if (Math.abs(c.x) > 0.62) {
-      if (Math.hypot(c.z - 1.67, c.y - 0.34) < 0.45) return c.x > 0 ? 'w0' : 'w1';
-      if (Math.hypot(c.z + 2.0, c.y - 0.36) < 0.52) return c.x > 0 ? 'w2' : 'w3';
+      if (/^Car\.?001/.test(p)) return c.x > 0 ? 'w0' : 'w1';
+      if (/^Car\.?002/.test(p)) return c.x > 0 ? 'w2' : 'w3';
     }
-    if (c.z > 2.35 && c.y < 0.5) return 'fw';
-    if (c.z < -2.55) return 'rw';
+    if (c.z > 2.4 && c.y < 0.45) return 'fw';
+    if (c.z < -2.8 && c.y > 0.35) return 'rw';
   };
   const prepF1 = () => f1Proto || (f1Proto = loadF1().then(async source => {
     const G = await import(new URL('../../assets/glb.js', document.baseURI).href);
